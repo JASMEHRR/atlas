@@ -1,0 +1,266 @@
+@import "tailwindcss";
+
+/*
+ * Atlas design language.
+ *
+ * Structural discipline borrowed from the reference screenshots: editorial
+ * serif display, uppercase mono for every functional label, rectangular
+ * hairline chips, numbered entries. The palette is our own — warm paper and
+ * ink, with a single rust accent that is the only saturated colour in the UI.
+ *
+ * Dark mode is a separate tuning, not an inversion: the dark ground is warm
+ * (not #000), borders gain luminosity rather than losing it, and the accent
+ * lifts in lightness so it holds the same optical weight against a dark field.
+ */
+
+@theme {
+  /* One type scale. Perfect-fourth-ish, tuned by eye at the display end. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1.1;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.35;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 0.9375rem;
+  --text-base--line-height: 1.6;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.45;
+  --text-xl: 1.5rem;
+  --text-xl--line-height: 1.25;
+  --text-2xl: 2rem;
+  --text-2xl--line-height: 1.15;
+  --text-3xl: 2.75rem;
+  --text-3xl--line-height: 1.05;
+
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
+    "Times New Roman", serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo,
+    Consolas, monospace;
+
+  /* One spacing scale: 4px base, no orphan values anywhere in the app. */
+  --spacing: 0.25rem;
+
+  /* One easing family, one duration band (120-240ms). */
+  --ease-atlas: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --duration-fast: 120ms;
+  --duration-base: 170ms;
+  --duration-slow: 240ms;
+}
+
+:root {
+  color-scheme: light;
+  --paper: #f4f1ea;
+  --paper-raised: #faf8f3;
+  --paper-sunken: #eae5da;
+  --ink: #1a1714;
+  --ink-muted: #6b6459;
+  --ink-faint: #948c7e;
+  --rule: #d4cdbf;
+  --rule-strong: #b8ae9c;
+  --accent: #b8422a;
+  --accent-soft: #f0dcd4;
+  --focus: #2b5fa8;
+  --ok: #3f6b46;
+  --warn: #8a6017;
+  --bad: #a33224;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  /* Warm near-black — a neutral #111 reads cold beside the rust accent. */
+  --paper: #16150f;
+  --paper-raised: #1f1d16;
+  --paper-sunken: #100f0a;
+  --ink: #ece7db;
+  --ink-muted: #9c9484;
+  --ink-faint: #6e675a;
+  --rule: #332f26;
+  --rule-strong: #4a463a;
+  /* Lifted, slightly desaturated: same optical weight on a dark field. */
+  --accent: #e0755a;
+  --accent-soft: #3a2019;
+  --focus: #7aa7e8;
+  --ok: #7fb389;
+  --warn: #d3a44a;
+  --bad: #e0796a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #16150f;
+    --paper-raised: #1f1d16;
+    --paper-sunken: #100f0a;
+    --ink: #ece7db;
+    --ink-muted: #9c9484;
+    --ink-faint: #6e675a;
+    --rule: #332f26;
+    --rule-strong: #4a463a;
+    --accent: #e0755a;
+    --accent-soft: #3a2019;
+    --focus: #7aa7e8;
+    --ok: #7fb389;
+    --warn: #d3a44a;
+    --bad: #e0796a;
+  }
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-paper-sunken: var(--paper-sunken);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-focus: var(--focus);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+}
+
+* {
+  border-color: var(--rule);
+}
+
+html {
+  /* Tabular numerals everywhere: entry numbers, counts, scores, ΔE values. */
+  font-variant-numeric: tabular-nums;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  -webkit-font-smoothing: antialiased;
+  /* Reserve the scrollbar so opening a drawer can't shift the layout. */
+  scrollbar-gutter: stable;
+}
+
+/* Focus states worth being proud of: a real offset ring, never removed. */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 1px;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--paper);
+}
+
+@utility label {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+@utility display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+}
+
+/* Rectangular hairline chip — the single most load-bearing primitive. */
+@utility chip {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--spacing) * 1.5);
+  border: 1px solid var(--rule-strong);
+  padding: calc(var(--spacing) * 1.25) calc(var(--spacing) * 2.5);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  color: var(--ink-muted);
+  background: transparent;
+  white-space: nowrap;
+  transition:
+    color var(--duration-fast) var(--ease-atlas),
+    border-color var(--duration-fast) var(--ease-atlas),
+    background-color var(--duration-fast) var(--ease-atlas);
+}
+
+@utility rule-t {
+  border-top: 1px solid var(--rule);
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule-strong) transparent;
+}
+
+@keyframes atlas-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes atlas-slide-up {
+  from {
+    transform: translateY(2%);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes atlas-veil {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes atlas-shimmer {
+  0% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0.5;
+  }
+}
+
+.anim-fade-up {
+  animation: atlas-fade-up var(--duration-base) var(--ease-atlas) both;
+}
+.anim-slide-up {
+  animation: atlas-slide-up var(--duration-slow) var(--ease-atlas) both;
+}
+.anim-veil {
+  animation: atlas-veil var(--duration-base) var(--ease-atlas) both;
+}
+.anim-shimmer {
+  animation: atlas-shimmer 1.4s var(--ease-atlas) infinite;
+}
+
+/* Not decoration — motion is genuinely off, including scroll behaviour. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
