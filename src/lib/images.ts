@@ -91,7 +91,22 @@ export async function screenshotUrl(url: string): Promise<Buffer> {
         "or drop the screenshot in directly.",
     );
   }
-  const browser = await chromium.launch();
+  let browser;
+  try {
+    browser = await chromium.launch();
+  } catch (err) {
+    // The package is installed but the browser binary was never downloaded.
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/Executable doesn't exist|playwright install/i.test(msg)) {
+      throw new Error(
+        "URL capture needs Playwright's Chromium binary, which isn't downloaded yet. " +
+          "Run `npm run atlas:browser` (or `npx playwright install chromium`), " +
+          "then retry — or drop the screenshot in directly.",
+      );
+    }
+    throw err;
+  }
+
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await page.goto(url, { waitUntil: "networkidle", timeout: 45_000 });

@@ -18,6 +18,7 @@ import { openrouter } from "./openrouter.ts";
 import { parseWithSchema, repairInstruction } from "./json.ts";
 import {
   ProviderError,
+  RETRY_NEXT_MODEL,
   type AiResult,
   type Attempt,
   type Capability,
@@ -127,9 +128,9 @@ export async function askJson<T extends z.ZodType>(
       continue;
     }
 
-    let model: ModelChoice;
+    let models: ModelChoice[];
     try {
-      model = await chooseModel(adapter, capability);
+      models = await chooseModels(adapter, capability);
     } catch (err) {
       const pe = asProviderError(id, err);
       record(pe);
@@ -142,29 +143,37 @@ export async function askJson<T extends z.ZodType>(
       continue;
     }
 
-    try {
-      const data = await runWithRepair<z.infer<T>>(
-        adapter,
-        request,
-        model,
-        options.schema as z.ZodType<z.infer<T>>,
-      );
-      attempts.push({
-        provider: id,
-        model: model.id,
-        outcome: "ok",
-        detail: model.reason,
-      });
-      return { data, provider: id, model: model.id, attempts };
-    } catch (err) {
-      const pe = asProviderError(id, err);
-      record(pe);
-      attempts.push({
-        provider: id,
-        model: model.id,
-        outcome: "failed",
-        detail: `${pe.kind}: ${pe.message}`,
-      });
+    // Walk this provider's candidates before moving to the next provider. A
+    // rate-limited or retired model is a property of the model, not the
+    // provider, and abandoning the provider over one is how a healthy chain
+    // ends up reporting total failure.
+    for (const model of models) {
+      try {
+        const data = await runWithRepair<z.infer<T>>(
+          adapter,
+          request,
+          model,
+          options.schema as z.ZodType<z.infer<T>>,
+        );
+        attempts.push({
+          provider: id,
+          model: model.id,
+          outcome: "ok",
+          detail: model.reason,
+        });
+        return { data, provider: id, model: model.id, attempts };
+      } catch (err) {
+        const pe = asProviderError(id, err);
+        record(pe);
+        attempts.push({
+          provider: id,
+          model: model.id,
+          outcome: "failed",
+          detail: `${pe.kind}: ${pe.message}`,
+        });
+        // Anything else is provider-wide (bad key, no credit): stop here.
+        if (!RETRY_NEXT_MODEL.has(pe.kind)) break;
+      }
     }
   }
 
@@ -202,15 +211,23 @@ async function runWithRepair<Out>(
   );
 }
 
-async function chooseModel(
+/**
+ * How many models to try per provider before failing over. Enough to ride out
+ * a rate-limited or retired head-of-list model; small enough that a genuinely
+ * broken provider doesn't stall the chain.
+ */
+const MODELS_PER_PROVIDER = 4;
+
+async function chooseModels(
   adapter: ProviderAdapter,
   capability: Capability,
-): Promise<ModelChoice> {
+): Promise<ModelChoice[]> {
   const pin = pinnedModel(capability);
   if (pin && pin.provider === adapter.id) {
-    return { id: pin.id, reason: "pinned by configuration", free: true };
+    // An explicit pin is an instruction, not a suggestion — no alternatives.
+    return [{ id: pin.id, reason: "pinned by configuration", free: true }];
   }
-  return adapter.selectModel(capability);
+  return adapter.selectModels(capability, MODELS_PER_PROVIDER);
 }
 
 /** A pinned provider jumps the queue; everything else keeps priority order. */

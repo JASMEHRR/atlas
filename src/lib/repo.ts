@@ -119,6 +119,10 @@ export const findByHash = (sha: string): string | null =>
   row<{ slug: string }>(`SELECT slug FROM inspirations WHERE sha256 = ?`, sha)
     ?.slug ?? null;
 
+/** One wording for a duplicate image, wherever it is detected. */
+export const duplicateImageMessage = (slug: string): string =>
+  `Already in the library as "${slug}" — identical image (same sha256).`;
+
 /** Rebuild every derived row (facets, tags, palette, components, FTS). */
 function reindex(slug: string, analysis: Analysis): void {
   run(`DELETE FROM facets WHERE slug = ?`, slug);
@@ -222,6 +226,13 @@ export function createInspiration(input: CreateInput): string {
   const slug = input.analysis.identity.slug;
   const ts = now();
   tx(() => {
+    // sha256 is unique in SQL, but the ingest-stage check ran minutes ago —
+    // long enough for another job to commit the same image while this one sat
+    // in vision. Re-check at the commit point, where no await can intervene,
+    // so a clash reads as a duplicate instead of a raw constraint error.
+    const twin = findByHash(input.sha256);
+    if (twin) throw new Error(duplicateImageMessage(twin));
+
     run(
       `INSERT INTO inspirations
         (slug, sha256, image_path, thumb_path, width, height, provenance,

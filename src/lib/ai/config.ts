@@ -51,7 +51,14 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
         // Non-Qwen fallbacks so a Qwen outage doesn't cost us the provider.
         { pattern: /llama-4-maverick/i, label: "Llama 4 Maverick" },
         { pattern: /llama-4-scout/i, label: "Llama 4 Scout" },
-        { pattern: /llava/i, label: "LLaVA" },
+        { pattern: /llama-?4/i, label: "Llama 4 (multimodal)" },
+        { pattern: /gemma-?[34]/i, label: "Gemma 3/4 (multimodal)" },
+        { pattern: /llava|pixtral|internvl|molmo|moondream|idefics/i, label: "other VLM" },
+        // Last resort: an explicit vision marker in the id. Groq exposes no
+        // modality flag, so this is the only signal left. If it turns out to be
+        // text-only the call fails and the chain moves to the next candidate —
+        // which is now cheap, since we try several models per provider.
+        { pattern: /-vl\b|\bvl-|vision|multimodal|omni/i, label: "id claims vision" },
       ],
       // Fast, cheap, structured — used for query expansion.
       text: [
@@ -105,17 +112,24 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
     maxOutputTokens: 16000,
     requestTimeoutMs: 180_000,
     models: {
+      // Newest generation first. Google retires older flash models for new
+      // accounts while still listing them in the catalogue, so a stale
+      // head-of-list 404s; the chain now tries the next entry automatically.
       vision: [
+        { pattern: /gemini-3(?:\.\d+)?-flash(?!.*lite)/i, label: "Gemini 3 Flash" },
+        { pattern: /gemini-3(?:\.\d+)?-flash-lite/i, label: "Gemini 3 Flash Lite" },
         { pattern: /gemini-2\.5-flash(?!.*lite)/i, label: "Gemini 2.5 Flash" },
         { pattern: /gemini-2\.0-flash(?!.*lite)/i, label: "Gemini 2.0 Flash" },
         { pattern: /gemini-2\.5-flash-lite/i, label: "Gemini 2.5 Flash Lite" },
         { pattern: /gemini-2\.0-flash-lite/i, label: "Gemini 2.0 Flash Lite" },
       ],
       text: [
-        { pattern: /gemini-2\.0-flash-lite/i, label: "Gemini 2.0 Flash Lite" },
+        { pattern: /gemini-3(?:\.\d+)?-flash-lite/i, label: "Gemini 3 Flash Lite" },
         { pattern: /gemini-2\.5-flash-lite/i, label: "Gemini 2.5 Flash Lite" },
-        { pattern: /gemini-2\.0-flash(?!.*lite)/i, label: "Gemini 2.0 Flash" },
+        { pattern: /gemini-2\.0-flash-lite/i, label: "Gemini 2.0 Flash Lite" },
+        { pattern: /gemini-3(?:\.\d+)?-flash(?!.*lite)/i, label: "Gemini 3 Flash" },
         { pattern: /gemini-2\.5-flash(?!.*lite)/i, label: "Gemini 2.5 Flash" },
+        { pattern: /gemini-2\.0-flash(?!.*lite)/i, label: "Gemini 2.0 Flash" },
       ],
     },
   },
@@ -125,7 +139,7 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
  * Gemini charges for Pro tiers and some preview models. Only families that
  * have a genuine free tier may be selected, regardless of the patterns above.
  */
-export const GEMINI_FREE_TIER = /^models\/gemini-(2\.0|2\.5)-flash/i;
+export const GEMINI_FREE_TIER = /^models\/gemini-\d+(?:\.\d+)?-flash/i;
 
 /**
  * Accepting an image is not the same as being able to describe a design.

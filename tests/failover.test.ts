@@ -218,12 +218,84 @@ test("when every provider fails the error names each one and why", async () => {
 
   await assert.rejects(ask(), (err: unknown) => {
     assert.ok(err instanceof AllProvidersFailedError);
-    assert.equal(err.attempts.length, 3);
+    // Every provider is represented. The count is >= 3 rather than == 3
+    // because a provider with several candidate models tries each of them.
+    assert.deepEqual(
+      [...new Set(err.attempts.map((a) => a.provider))],
+      ["groq", "openrouter", "gemini"],
+    );
+    assert.ok(err.attempts.every((a) => a.outcome === "failed"));
     assert.match(err.message, /groq/);
     assert.match(err.message, /openrouter/);
     assert.match(err.message, /gemini/);
     return true;
   });
+});
+
+test("a rate-limited model falls to the next model on the SAME provider", async () => {
+  // Two vision models on Groq; the higher-ranked one is rate-limited upstream.
+  __setGroqCatalogue(["qwen/qwen3-vl-72b-instruct", "qwen/qwen2.5-vl-7b-instruct"]);
+
+  const tried: string[] = [];
+  routes = [
+    (url, init) => {
+      if (!url.includes("groq.com")) return undefined!;
+      const model = JSON.parse(String(init.body)).model as string;
+      tried.push(model);
+      return model.includes("qwen3")
+        ? json({ error: "rate limited" }, 429)
+        : chatOk({ name: "same-provider", n: 1 });
+    },
+  ];
+
+  const result = await ask();
+  assert.equal(result.provider, "groq");
+  assert.equal(result.data.name, "same-provider");
+  assert.equal(tried.length, 2);
+  // The provider was never abandoned — nothing downstream was contacted.
+  assert.equal(calls.some((c) => c.includes("openrouter")), false);
+  assert.equal(calls.some((c) => c.includes("googleapis")), false);
+});
+
+test("a model retired for new accounts (404) falls to the next Gemini model", async () => {
+  delete process.env.GROQ_API_KEY;
+  delete process.env.OPENROUTER_API_KEY;
+
+  const tried: string[] = [];
+  routes = [
+    (url) => {
+      if (!url.includes("googleapis")) return undefined!;
+      const model = /models\/([^:]+):/.exec(url)?.[1] ?? "";
+      tried.push(model);
+      return model.includes("2.5")
+        ? json({ error: { code: 404, message: "no longer available to new users" } }, 404)
+        : geminiOk({ name: "fallback", n: 2 });
+    },
+  ];
+
+  const result = await ask();
+  assert.equal(result.provider, "gemini");
+  assert.equal(result.data.name, "fallback");
+  assert.deepEqual(tried, ["gemini-2.5-flash", "gemini-2.0-flash"]);
+});
+
+test("a provider-wide failure does not burn through its model list", async () => {
+  __setGroqCatalogue(["qwen/qwen3-vl-72b-instruct", "qwen/qwen2.5-vl-7b-instruct"]);
+
+  let groqCalls = 0;
+  routes = [
+    (url) => {
+      if (!url.includes("groq.com")) return undefined!;
+      groqCalls++;
+      return json({ error: "invalid api key" }, 401);
+    },
+    (url) => (url.includes("openrouter") ? chatOk({ name: "b", n: 2 }) : undefined!),
+  ];
+
+  const result = await ask();
+  assert.equal(result.provider, "openrouter");
+  // 401 is about the key, not the model — trying model two would be pointless.
+  assert.equal(groqCalls, 1);
 });
 
 test("with no keys at all the error explains exactly what to add", async () => {

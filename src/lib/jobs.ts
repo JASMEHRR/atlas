@@ -9,7 +9,12 @@ import { row, rows, run, now } from "./db.ts";
 import { STAGES, Job, type Stage, type Provenance } from "./schema.ts";
 import { storeImage, screenshotUrl, sha256 } from "./images.ts";
 import { analyzeScreenshot } from "./analyze.ts";
-import { createInspiration, allSlugs, findByHash } from "./repo.ts";
+import {
+  createInspiration,
+  allSlugs,
+  findByHash,
+  duplicateImageMessage,
+} from "./repo.ts";
 import { buildArtifacts } from "./derive.ts";
 
 /** Staged input, persisted so a retry doesn't need the original upload. */
@@ -160,11 +165,7 @@ async function runIngest(id: string, p: Payload): Promise<Payload> {
       : Buffer.from(p.source, "base64");
 
   const existing = findByHash(sha256(buf));
-  if (existing) {
-    throw new Error(
-      `Already in the library as "${existing}" — identical image (same sha256).`,
-    );
-  }
+  if (existing) throw new Error(duplicateImageMessage(existing));
 
   const hint =
     (p.filename ?? p.sourceUrl ?? "capture")

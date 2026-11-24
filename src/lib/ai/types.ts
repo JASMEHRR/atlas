@@ -48,11 +48,34 @@ export interface ProviderAdapter {
   readonly id: ProviderId;
   /** Cheap, synchronous: does this provider have credentials at all? */
   isConfigured(): boolean;
-  /** Live catalogue lookup + preference ranking. Throws NoModelError. */
+  /**
+   * Live catalogue lookup + preference ranking, best first.
+   *
+   * Returns a *list*, not a single choice: hosted catalogues advertise models
+   * that are rate-limited upstream, retired for new accounts, or simply
+   * unreachable for this key, and none of that is visible until the call is
+   * made. One bad head-of-list model must not cost us the whole provider.
+   *
+   * Throws ProviderError("no-model") only when nothing is usable at all.
+   */
+  selectModels(capability: Capability, limit: number): Promise<ModelChoice[]>;
+  /** Convenience: the single best choice. Used by diagnostics. */
   selectModel(capability: Capability): Promise<ModelChoice>;
   /** Perform the call. Throws ProviderError on any failure. */
   complete(request: JsonRequest, model: ModelChoice): Promise<RawCompletion>;
 }
+
+/**
+ * Failure kinds where a *different model on the same provider* is worth trying.
+ * A rate limit or a retired model is model-specific; a bad key is not.
+ */
+export const RETRY_NEXT_MODEL: ReadonlySet<FailureKind> = new Set<FailureKind>([
+  "rate-limited",
+  "no-model",
+  "server-error",
+  "timeout",
+  "bad-output",
+]);
 
 /** Result handed back to the app. `provider`/`model` are for display only. */
 export type AiResult<T> = {

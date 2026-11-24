@@ -46,7 +46,10 @@ export const groq: ProviderAdapter = {
 
   isConfigured: () => key().length > 0,
 
-  async selectModel(capability: Capability): Promise<ModelChoice> {
+  async selectModels(
+    capability: Capability,
+    limit: number,
+  ): Promise<ModelChoice[]> {
     const ids = await catalogue();
     if (ids.length === 0) {
       throw new ProviderError("groq", "no-model", "Groq returned an empty catalogue");
@@ -55,23 +58,29 @@ export const groq: ProviderAdapter = {
     const usable =
       capability === "vision" ? ids.filter((id) => !NOT_A_GENERAL_VLM.test(id)) : ids;
     const ranked = rankByPreference(usable, PROVIDERS.groq.models[capability]);
-    const best = ranked[0];
-    if (!best) {
+
+    if (ranked.length === 0) {
       throw new ProviderError(
         "groq",
         "no-model",
-        `no ${capability} model on Groq matched the configured preferences ` +
-          `(catalogue: ${ids.slice(0, 8).join(", ")}${ids.length > 8 ? ", …" : ""})`,
+        `no ${capability} model on Groq matched the configured preferences. ` +
+          `Run \`npm run debug:providers\` to see the full catalogue, then add a ` +
+          `pattern in src/lib/ai/config.ts (catalogue: ` +
+          `${ids.slice(0, 8).join(", ")}${ids.length > 8 ? ", …" : ""})`,
       );
     }
 
-    return {
-      id: best.id,
-      reason: `${best.label} — highest-ranked ${capability} match on Groq`,
-      // Groq's free tier is rate-limited rather than model-gated, so any
-      // model the key can reach is usable without a spend decision.
+    // Groq's free tier is rate-limited rather than model-gated, so any model
+    // the key can reach is usable without a spend decision.
+    return ranked.slice(0, limit).map((m) => ({
+      id: m.id,
+      reason: `${m.label} — ranked ${capability} match on Groq`,
       free: true,
-    };
+    }));
+  },
+
+  async selectModel(capability: Capability): Promise<ModelChoice> {
+    return (await this.selectModels(capability, 1))[0]!;
   },
 
   complete(request: JsonRequest, model: ModelChoice): Promise<RawCompletion> {

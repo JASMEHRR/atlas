@@ -9,6 +9,7 @@ import {
   allSlugs,
   collectionSlugs,
   createInspiration,
+  findByHash,
   getInspiration,
   listCollections,
 } from "./repo.ts";
@@ -247,7 +248,9 @@ export async function importBundle(raw: unknown): Promise<{
   }
 
   for (const i of bundle.inspirations) {
-    if (existing.has(i.slug)) {
+    // Skip on either handle: an image already held under a different slug
+    // would otherwise hit the sha256 constraint and abort the whole import.
+    if (existing.has(i.slug) || findByHash(i.sha256)) {
       skipped.push(i.slug);
       continue;
     }

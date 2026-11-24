@@ -1,0 +1,195 @@
+/* ============================================================
+   Design tokens — izanami-ritual-dark
+   Measured from https://izanami-official.com/ @ 1536px, 2026-08-08
+   Transferable design language. Not a copy of the source site.
+   ============================================================ */
+
+:root {
+  /* --- Colour -------------------------------------------------
+     The INTERFACE is achromatic — two values, no accent token.
+     All colour comes from photography, graded to one narrow low-key
+     range (sage, moss, wet stone, sand, ochre lamplight) so imagery
+     sits inside the dark ground instead of punching out of it.
+     Blacks are warm-shifted (R>G>B); pure #000 reads as unfinished
+     dark mode. This language does not work without real photography. */
+  --ground:        #0a0801;  /* page background, warm near-black  */
+  --ink:           #d9d7d4;  /* body text, warm off-white         */
+  --void:          #000000;  /* behind canvas/media layers only   */
+
+  /* Derived. Opacity steps, not new hues — keeps the palette shut. */
+  --ink-muted:     rgb(217 215 212 / 0.62);
+  --ink-faint:     rgb(217 215 212 / 0.34);
+  --rule:          rgb(217 215 212 / 0.18);
+
+  /* Contrast: --ink on --ground ≈ 15.6:1 (WCAG AAA). Any new
+     token must be checked before use; there is no accent to hide behind. */
+
+  /* --- Type families ------------------------------------------
+     Four families, no overlapping roles. All freely licensed:
+     Cinzel / Playfair Display / Shippori Mincho = Google (OFL),
+     Satoshi = Fontshare.                                        */
+  --font-label:    "Cinzel", "Times New Roman", serif;
+  --font-display:  "Playfair Display", Georgia, serif;
+  --font-body:     "Shippori Mincho", "Hiragino Mincho ProN", serif;
+  --font-ui:       "Satoshi", "Helvetica Neue", Arial,
+                   "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+
+  /* --- Type scale (measured) ---------------------------------- */
+  --text-2xs:      13px;   /* smallest label                      */
+  --text-xs:       15px;   /* body, small label                   */
+  --text-sm:       16px;
+  --text-md:       17px;
+  --text-lg:       19px;   /* section eyebrow label               */
+  --text-2xl:      29px;
+  --text-3xl:      38px;
+  --text-4xl:      48px;   /* display headline                    */
+
+  /* --- Leading: THE signature of this language -----------------
+     Inverted contrast. Display locks to 1.0 so stacked headline
+     fragments read as one carved mass; body opens to 2.0–2.46 so
+     prose feels meditative. Do not blend these toward each other. */
+  --leading-display: 1;
+  --leading-tight:   1.05;
+  --leading-body:    2.05;
+  --leading-airy:    2.46;
+
+  /* Tracking is `normal` everywhere. Cinzel's Roman proportions do
+     the work that letterspaced sans-serif usually fakes.          */
+  --tracking:        normal;
+
+  /* --- Space -------------------------------------------------- */
+  --space-1:   8px;
+  --space-2:   16px;
+  --space-3:   24px;
+  --space-4:   40px;
+  --space-5:   64px;
+  --space-6:   104px;
+  --space-7:   168px;
+  --space-8:   272px;   /* between major sections                 */
+
+  --sticky-top: 189px;  /* measured pin offset for section labels */
+
+  /* --- Motion --------------------------------------------------
+     Ambient loops run far slower than conscious attention: the page
+     feels alive rather than animated. Under ~20s it becomes an
+     "effect" and starts competing with the content.               */
+  --dur-ui:        0.4s;
+  --ease-ui:       linear;   /* mechanical/ritual, per source      */
+  --ease-natural:  cubic-bezier(0.22, 1, 0.36, 1);  /* use for real UI */
+  --dur-reveal:    1.2s;
+  --dur-ambient:   100s;
+}
+
+/* ---------- Base ---------- */
+
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  line-height: var(--leading-body);
+  letter-spacing: var(--tracking);
+}
+
+/* ---------- Display headline ----------
+   Break into 2–4 word fragments manually. At 1.0 leading those
+   fragments stack into a solid block — the line breaks are
+   compositional, not incidental. */
+.display {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  line-height: var(--leading-display);
+  font-weight: 400;
+  text-wrap: balance;
+}
+
+/* ---------- Staircase headline ----------
+   Display lines cascade rightward. Combined with 1.0 leading this reads
+   as inscribed rather than typeset. Apply to successive lines. */
+.display > :nth-child(2) { padding-inline-start: 3ch; }
+.display > :nth-child(3) { padding-inline-start: 6ch; }
+.display > :nth-child(4) { padding-inline-start: 9ch; }
+
+/* ---------- Section eyebrow ----------
+   Rotated to run bottom-to-top along the left edge, pinned while its
+   section scrolls past. Replaces a persistent nav. Never put text here
+   that a user needs to read quickly. */
+.label {
+  position: sticky;
+  top: var(--sticky-top);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-family: var(--font-label);
+  font-size: var(--text-lg);
+  line-height: 1.01;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+/* ---------- Body copy ---------- */
+.prose {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  line-height: var(--leading-airy);
+  max-width: 46ch;   /* the open leading needs a short measure */
+}
+
+/* ---------- Text-swap link ----------
+   Duplicate the label in markup:
+   <a class="swap"><span>View more</span><span aria-hidden="true">View more</span></a> */
+.swap {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  font-family: var(--font-label);
+  font-size: var(--text-md);
+  line-height: 1.4;
+  border-bottom: 1px solid var(--rule);
+  text-decoration: none;
+  color: var(--ink);
+}
+.swap > span {
+  display: block;
+  transition: transform var(--dur-ui) var(--ease-ui);
+}
+.swap > span:last-child {
+  position: absolute;
+  inset: 0;
+  transform: translateY(100%);
+}
+.swap:hover > span:first-child { transform: translateY(-100%); }
+.swap:hover > span:last-child  { transform: translateY(0); }
+
+/* ---------- Ambient drift ---------- */
+@keyframes drift-a { to { transform: translate3d(12%, -4%, 0); } }
+@keyframes drift-b { to { transform: translate3d(-9%,  6%, 0); } }
+
+.ambient-a,
+.ambient-b { will-change: transform; }
+.ambient-a { animation: drift-a var(--dur-ambient) linear infinite alternate; }
+.ambient-b { animation: drift-b var(--dur-ambient) linear infinite alternate; }
+
+/* ---------- Stacked sticky panels ---------- */
+.sticky-panel {
+  position: sticky;
+  top: 0;
+  min-height: 100svh;
+  background: var(--ground);
+}
+
+/* ---------- Accessibility ----------
+   Non-negotiable for this language: the entrance is scroll-locked and
+   the loops are permanent. Both must be fully escapable. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Skip the gated preloader entirely rather than fast-forwarding it. */
+  .preloader { display: none !important; }
+  html.-wait { overflow: auto !important; }
+}

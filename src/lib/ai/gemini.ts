@@ -58,7 +58,10 @@ export const gemini: ProviderAdapter = {
 
   isConfigured: () => key().length > 0,
 
-  async selectModel(capability: Capability): Promise<ModelChoice> {
+  async selectModels(
+    capability: Capability,
+    limit: number,
+  ): Promise<ModelChoice[]> {
     const names = await catalogue();
     if (names.length === 0) {
       throw new ProviderError(
@@ -69,15 +72,31 @@ export const gemini: ProviderAdapter = {
     }
 
     const ranked = rankByPreference(names, PROVIDERS.gemini.models[capability]);
-    const best = ranked[0]?.id ?? names[0]!;
 
-    return {
-      id: best.replace(/^models\//, ""),
-      reason: ranked[0]
-        ? `${ranked[0].label} — free-tier ${capability} model`
-        : "first available free-tier Gemini model",
+    const choices: ModelChoice[] = ranked.map((m) => ({
+      id: m.id.replace(/^models\//, ""),
+      reason: `${m.label} — free-tier ${capability} model`,
       free: true,
-    };
+    }));
+
+    // Google retires models for new accounts while still listing them, so keep
+    // the unranked free-tier names as backups rather than a single choice.
+    const seen = new Set(choices.map((c) => c.id));
+    for (const n of names) {
+      const id = n.replace(/^models\//, "");
+      if (seen.has(id)) continue;
+      choices.push({
+        id,
+        reason: "other free-tier Gemini model",
+        free: true,
+      });
+    }
+
+    return choices.slice(0, limit);
+  },
+
+  async selectModel(capability: Capability): Promise<ModelChoice> {
+    return (await this.selectModels(capability, 1))[0]!;
   },
 
   async complete(request: JsonRequest, model: ModelChoice): Promise<RawCompletion> {

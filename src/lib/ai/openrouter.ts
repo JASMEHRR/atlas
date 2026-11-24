@@ -84,7 +84,10 @@ export const openrouter: ProviderAdapter = {
 
   isConfigured: () => key().length > 0,
 
-  async selectModel(capability: Capability): Promise<ModelChoice> {
+  async selectModels(
+    capability: Capability,
+    limit: number,
+  ): Promise<ModelChoice[]> {
     const all = await catalogue();
 
     // Order matters: free filter first, capability second, ranking last.
@@ -111,21 +114,33 @@ export const openrouter: ProviderAdapter = {
       PROVIDERS.openrouter.models[capability],
     );
 
-    // Unlike Groq, an unranked free model is still usable — prefer the one
-    // with the largest context rather than giving up the provider entirely.
-    const best =
-      ranked[0]?.id ??
-      [...candidates].sort(
-        (a, b) => (b.context_length ?? 0) - (a.context_length ?? 0),
-      )[0]!.id;
-
-    return {
-      id: best,
-      reason: ranked[0]
-        ? `${ranked[0].label} — best free ${capability} model on OpenRouter`
-        : `largest-context free ${capability} model on OpenRouter`,
+    const choices: ModelChoice[] = ranked.map((m) => ({
+      id: m.id,
+      reason: `${m.label} — ranked free ${capability} model on OpenRouter`,
       free: true,
-    };
+    }));
+
+    // Unlike Groq, an unranked free model is still usable — append the rest by
+    // context size rather than giving up the provider. Free models on
+    // OpenRouter are rate-limited upstream constantly, so depth matters more
+    // here than anywhere else in the chain.
+    const seen = new Set(choices.map((c) => c.id));
+    for (const m of [...candidates].sort(
+      (a, b) => (b.context_length ?? 0) - (a.context_length ?? 0),
+    )) {
+      if (seen.has(m.id)) continue;
+      choices.push({
+        id: m.id,
+        reason: `unranked free ${capability} model on OpenRouter (largest context first)`,
+        free: true,
+      });
+    }
+
+    return choices.slice(0, limit);
+  },
+
+  async selectModel(capability: Capability): Promise<ModelChoice> {
+    return (await this.selectModels(capability, 1))[0]!;
   },
 
   complete(request: JsonRequest, model: ModelChoice): Promise<RawCompletion> {
